@@ -1,0 +1,536 @@
+---
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+#This project is statistical analysis for a 3X1 facotrial experiment. Experiment contain four scenarios for each of three conditions.
+# The conditions involve AI, Human and Human aided by AI. each of these are summy coded # to run the regression model.
+# TRUST, CREDEBILITY, QUALITY, AND FAIRNESS are the dependent variables as perceived by #participants. conditions is independent variable.
+
+# Step-1: pre-process data to remove participants who failed the required checks.
+# Step-2: Plot the over all projection for 3 issues in each of three conditions
+# Step-3: run ANOVA
+# Step-4: run multiple regression models.
+
+```{r}
+require(ggplot2)
+require(dplyr)
+require(ggpubr)
+``` 
+```{r}
+ex.data=read.csv("C:\\Users\\arti\\Documents\\M-data and analysis\\AI Experiment_December 20-final.csv")
+dat_com = ex.data %>% filter((SOCIAL_1!=1 | SOCIAL_2!=1 | SOCIAL_3 !=1 | SOCIAL_4!=1 ) & CHECK==2)
+dat_com$Duration..in.seconds. <- as.numeric(dat_com$Duration..in.seconds.)
+class(dat_com$Duration..in.seconds.)
+dat_com_str<- dat_com
+median(as.numeric(ex.data$Duration..in.seconds.))
+quantile(ex.data$Duration..in.seconds.)
+
+#excluding-speeders
+dat_com_str_sp<-dat_com_str %>%filter(Duration..in.seconds. > 268.80)
+nrow(dat_com_str_sp)
+
+#### excluding duplicates
+final_data <- dat_com_str_sp %>% distinct(pid, .keep_all = T)
+nrow(final_data)
+```
+```{r}
+
+final_data$AI.dummy <- ifelse(final_data$condition %in% c(2,3),0,1)
+final_data$Human.dummy <- ifelse(final_data$condition %in% c(1,3),0,1)
+final_data$AI_Human.dummy <- ifelse(final_data$condition %in% c(1,2),0,1)
+final_data <- final_data %>% filter(!is.na(final_data$BEN_CRED))
+```
+
+
+
+```{r randomization check}
+final_data %>% group_by(condition) %>% summarise(mean(RACE), sd(RACE))
+final_data %>% group_by(condition) %>% summarise(mean(GENDER), sd(GENDER))
+final_data %>% group_by(condition) %>% summarise(mean(EDU, na.rm=T), sd(EDU, na.rm=T))
+final_data %>% group_by(condition) %>% summarise(mean(AGE_CAT, na.rm=T), sd(AGE_CAT, na.rm=T))
+final_data %>% group_by(condition) %>% summarise(mean(PARTY7, na.rm=T), sd(PARTY7, na.rm=T))
+final_data %>% group_by(condition) %>% summarise(mean(IDEO_1, na.rm=T), sd(IDEO_1, na.rm=T))
+final_data %>% group_by(condition) %>% summarise(mean(FOLLOW, na.rm=T), sd(FOLLOW, na.rm=T))
+#final_data %>% group_by(condition) %>% summarise(mean(as.numeric(AI_2), na.rm=T), sd(AI_2, na.rm=T))
+
+summary(aov(scale(condition)~scale(RACE), data = subset(final_data, !is.na(RACE)) ), na.rm=T)
+summary(aov(scale(condition)~scale(GENDER) , data = subset(final_data,!is.na(GENDER))), na.rm=T)
+summary(aov(scale(condition)~scale(EDU), data = subset(final_data, !is.na(EDU))), na.rm=T)
+summary(aov(scale(condition)~scale(AGE_CAT), data = subset(final_data, !is.na(AGE_CAT))), na.rm=T)
+summary(aov(scale(condition)~scale(PARTY7), data = subset(final_data, !is.na(PARTY7))), na.rm=T)
+summary(aov(scale(condition)~scale(IDEO_1), data = subset(final_data, !is.na(IDEO_1))), na.rm=T)
+summary(aov(scale(condition)~scale(FOLLOW), data = subset(final_data, !is.na(FOLLOW))), na.rm=T)
+summary(aov(scale(condition)~scale(INCOME), data = subset(final_data, !is.na(FOLLOW))), na.rm=T)
+#summary(aov(scale(condition)~scale(AI_2), data = subset(final_data, !is.na(AI_2))), na.rm=T)
+
+
+```
+```{r}
+final_data$mean.trust <- (final_data$TRUST+final_data$CIVIL_TRUST+ final_data$FACTS_TRUST+ final_data$DEC_TRUST)/4
+final_data$mean.fair <- (final_data$FAIR+final_data$CIVIL_FAIR+ final_data$FACTS_FAIR+ final_data$DEC_FAIR)/4
+final_data$mean.biased <- (final_data$BIASED+final_data$CIVIL_BIASED+ final_data$FACTS_BIASED+ final_data$DEC_BIASED)/4
+final_data$mean.agree <- (final_data$AGREE+final_data$CIVIL_AGREE+ final_data$FACTS_AGREE+ final_data$DEC_AGREE)/4
+```
+
+```{r for graphs}
+
+s1_1<- final_data %>% select("TRUST","FAIR","BIASED","AGREE","condition", "AI.dummy","Human.dummy","AI_Human.dummy","EDU")
+s1_1[ncol(s1_1)+1]<- rep(1, N)
+s1_2<- final_data %>% select("CIVIL_TRUST","CIVIL_FAIR","CIVIL_BIASED","CIVIL_AGREE","condition", "AI.dummy","Human.dummy","AI_Human.dummy","EDU")
+s1_2[ncol(s1_2)+1]<- rep(2, N)
+s1_3<- final_data %>% select("FACTS_TRUST","FACTS_FAIR","FACTS_BIASED","FACTS_AGREE","condition", "AI.dummy","Human.dummy","AI_Human.dummy","EDU")
+s1_3[ncol(s1_3)+1]<- rep(3, N)
+s1_4<- final_data %>% select("DEC_TRUST","DEC_FAIR","DEC_BIASED","DEC_AGREE","condition", "AI.dummy","Human.dummy","AI_Human.dummy","EDU")
+s1_4[ncol(s1_4)+1]<- rep(4, N)
+
+colnames(s1_2)[which(names(s1_2) == "CIVIL_TRUST")] <- "TRUST"
+colnames(s1_3)[which(names(s1_3) == "FACTS_TRUST")] <- "TRUST"
+colnames(s1_4)[which(names(s1_4) == "DEC_TRUST")] <- "TRUST"
+colnames(s1_2)[which(names(s1_2) == "CIVIL_FAIR")] <- "FAIR"
+colnames(s1_3)[which(names(s1_3) == "FACTS_FAIR")] <- "FAIR"
+colnames(s1_4)[which(names(s1_4) == "DEC_FAIR")] <- "FAIR"
+colnames(s1_2)[which(names(s1_2) == "CIVIL_AGREE")] <- "AGREE"
+colnames(s1_3)[which(names(s1_3) == "FACTS_AGREE")] <- "AGREE"
+colnames(s1_4)[which(names(s1_4) == "DEC_AGREE")] <- "AGREE"
+colnames(s1_2)[which(names(s1_2) == "CIVIL_BIASED")] <- "BIASED"
+colnames(s1_3)[which(names(s1_3) == "FACTS_BIASED")] <- "BIASED"
+colnames(s1_4)[which(names(s1_4) == "DEC_BIASED")] <- "BIASED"
+
+df1<- rbind(s1_1,s1_2,s1_3,s1_4)
+colnames(df1)[which(names(df1) == "V10")] <- "scenario"
+```
+
+
+```{r Overall and Scenariowise results}
+####### Over-all results ###########
+
+summary(aov((mean.trust) ~ (condition), data = final_data), na.rm=T)
+summary(aov((mean.fair) ~ (condition) , data = final_data), na.rm=T)
+summary(aov((mean.biased) ~ (condition) , data = final_data), na.rm=T)
+summary(aov((mean.agree) ~ (condition), data = final_data), na.rm=T)
+
+summary(lm((mean.trust) ~ (AI.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((mean.fair) ~ (AI.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((mean.biased) ~ (AI.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((mean.agree) ~ (AI.dummy) + (AI_Human.dummy)+(EDU), data = final_data), na.rm=T)
+
+summary(lm((mean.trust) ~ (Human.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((mean.fair) ~ (Human.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((mean.biased) ~ (Human.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((mean.agree) ~ (Human.dummy) + (AI_Human.dummy)+(EDU), data = final_data), na.rm=T)
+
+########################################## Scenario-1 ######################################################################
+summary(lm((TRUST) ~ (AI.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((FAIR) ~ (AI.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((BIASED) ~ (AI.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((AGREE) ~ (AI.dummy) + (AI_Human.dummy)+(EDU), data = final_data), na.rm=T)
+
+summary(lm((TRUST) ~ (Human.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((FAIR) ~ (Human.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((BIASED) ~ (Human.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((AGREE) ~ (Human.dummy) + (AI_Human.dummy)+(EDU), data = final_data), na.rm=T)
+  
+############################################ Scenario-2 ####################################################################
+summary(lm((CIVIL_TRUST) ~ (AI.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((CIVIL_FAIR) ~ (AI.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((CIVIL_BIASED) ~ (AI.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((CIVIL_AGREE) ~ (AI.dummy) + (AI_Human.dummy)+(EDU), data = final_data), na.rm=T)
+
+summary(lm((CIVIL_TRUST) ~ (Human.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((CIVIL_FAIR) ~ (Human.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((CIVIL_BIASED) ~ (Human.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((CIVIL_AGREE) ~ (Human.dummy) + (AI_Human.dummy)+(EDU), data = final_data), na.rm=T)
+
+############################################## Scenario-3 #############################################################
+
+summary(lm((FACTS_TRUST) ~ (AI.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((FACTS_FAIR) ~ (AI.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((FACTS_BIASED) ~ (AI.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((FACTS_AGREE) ~ (AI.dummy) + (AI_Human.dummy)+(EDU), data = final_data), na.rm=T)
+
+summary(lm((FACTS_TRUST) ~ (Human.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((FACTS_FAIR) ~ (Human.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((FACTS_BIASED) ~ (Human.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((FACTS_AGREE) ~ (Human.dummy) + (AI_Human.dummy)+(EDU), data = final_data), na.rm=T)
+
+################################################## Scenario-4 #########################################################
+
+summary(lm((DEC_TRUST) ~ (AI.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((DEC_FAIR) ~ (AI.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((DEC_BIASED) ~ (AI.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((DEC_AGREE) ~ (AI.dummy) + (AI_Human.dummy)+(EDU), data = final_data), na.rm=T)
+
+summary(lm((DEC_TRUST) ~ (Human.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((DEC_FAIR) ~ (Human.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((DEC_BIASED) ~ (Human.dummy) + (AI_Human.dummy) +(EDU), data = final_data), na.rm=T)
+summary(lm((DEC_AGREE) ~ (Human.dummy) + (AI_Human.dummy)+(EDU), data = final_data), na.rm=T)
+```
+
+```{r Post-hoc pairwise comparision}
+
+pairwise.t.test(df1$TRUST, df1$condition, p.adj="none") 
+pairwise.t.test(df1$BIASED, df1$condition, p.adj="none")
+pairwise.t.test(df1$AGREE, df1$condition, p.adj="none")
+pairwise.t.test(df1$FAIR, df1$condition, p.adj="none")
+
+pairwise.t.test(df1$TRUST, df1$condition, p.adj="bonf")
+pairwise.t.test(df1$BIASED, df1$condition, p.adj="bonf")
+pairwise.t.test(df1$AGREE, df1$condition, p.adj="bonf")
+pairwise.t.test(df1$FAIR, df1$condition, p.adj="bonf")
+
+pairwise.t.test(df1$TRUST, df1$condition, p.adj="holm")
+pairwise.t.test(df1$BIASED, df1$condition, p.adj="holm")
+pairwise.t.test(df1$AGREE, df1$condition, p.adj="holm")
+pairwise.t.test(df1$FAIR, df1$condition, p.adj="holm")
+
+
+```
+
+```{r Plots}
+
+
+study1.data1 <- df1 %>% group_by(scenario, condition) %>% summarise(
+  "mean.quality" = mean(as.numeric(TRUST),na.rm=TRUE),
+  "sd.quality" = sd(as.numeric(TRUST), na.rm = TRUE),
+  "N" = length(TRUST),
+) %>% mutate("se.quality" = sd.quality/ sqrt(N))
+s1_g1<-ggplot(data = study1.data1, aes(x = as.factor(scenario), y = mean.quality, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean.quality - se.quality, 
+                    ymax = mean.quality + se.quality), position = position_dodge(.9))  + 
+  labs(x = "Scenarios",
+       y = "Percieved Trust",
+       title = "Perception of Trust") + 
+  theme_classic()
+
+study1.data2 <- df1 %>% group_by(scenario, condition) %>% summarise(
+  "mean.biased" = mean(as.numeric(BIASED), na.rm = TRUE),
+  "sd.biased" = sd(as.numeric(BIASED), na.rm = TRUE),
+  "N" = length(BIASED),
+) %>% mutate("se.biased" = sd.biased/ sqrt(N))
+s1_g2<-ggplot(data = study1.data2, aes(x = as.factor(scenario), y = mean.biased, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean.biased - se.biased, 
+                    ymax = mean.biased + se.biased), position = position_dodge(.9))  + 
+  labs(x = "Scenarios",
+       y = "Percieved biasness",
+       title = "Perception of Biasness") + 
+  theme_classic()
+
+
+
+study1.data3 <- df1 %>% group_by(scenario, condition) %>% summarise(
+  "mean.cred" = mean(as.numeric(FAIR), na.rm = TRUE),
+  "sd.cred" = sd(as.numeric(FAIR), na.rm = TRUE),
+  "N" = length(FAIR),
+) %>% mutate("se.cred" = sd.cred/ sqrt(N))
+s1_g3<-ggplot(data = study1.data3, aes(x = as.factor(scenario), y = mean.cred, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean.cred - se.cred, 
+                    ymax = mean.cred + se.cred), position = position_dodge(.9))  + 
+  labs(x = "Scenarios",
+       y = "Percieved fairness in decision",
+       title = "Perception of fairness") + 
+  theme_classic()
+
+study1.data4 <- df1 %>% group_by(scenario,condition) %>% summarise(
+  "mean.agree" = mean(as.numeric(AGREE), na.rm = TRUE),
+  "sd.agree" = sd(as.numeric(AGREE), na.rm = TRUE),
+  "N" = length(AGREE),
+) %>% mutate("se.agree" = sd.agree/ sqrt(N))
+s1_g4<-ggplot(data = study1.data4, aes(x = as.factor(scenario), y = mean.agree, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean.agree - se.agree, 
+                    ymax = mean.agree + se.agree), position = position_dodge(.9))  + 
+  labs(x = "Scenarios",
+       y = "Percieved Agreeability",
+       title = "Perception of Agreeability") + 
+  theme_classic()
+
+ggarrange(s1_g1,s1_g2,s1_g3,s1_g4)
+```
+
+
+<!-- ######################### Scenariowise -->
+<!-- analysis################################## #data analysis usisng regression -->
+<!-- summary(lm(scale(TRUST) ~ scale(condition), data = df1 %>% filter(scenario == -->
+<!-- 1), na.rm=T)) -->
+<!-- scatterplot(df1$condition,df1$TRUST) summary(lm(scale(FAIR) ~ scale(condition), -->
+<!-- data = final_data), na.rm=T) summary(lm(scale(BIASED) ~ scale(condition), data = -->
+<!-- final_data), na.rm=T) summary(lm(scale(TRUST) ~ scale(condition), data = -->
+<!-- final_data), na.rm=T) summary(lm(scale(AGREE) ~ scale(condition), data = -->
+<!-- final_data), na.rm=T) -->
+<!-- summary(lm(scale(CIVIL_FAIR) ~ scale(condition), data = final_data), na.rm=T) -->
+<!-- summary(lm(scale(CIVIL_BIASED) ~ scale(condition), data = final_data), na.rm=T) -->
+<!-- summary(lm(scale(CIVIL_TRUST) ~ scale(condition), data = final_data), na.rm=T) -->
+<!-- summary(lm(scale(CIVIL_AGREE) ~ scale(condition), data = final_data), na.rm=T) -->
+<!-- summary(lm(scale(FACTS_FAIR) ~ scale(condition), data = final_data), na.rm=T) -->
+<!-- summary(lm(scale(FACTS_BIASED) ~ scale(condition), data = final_data), na.rm=T) -->
+<!-- summary(lm(scale(FACTS_TRUST) ~ scale(condition), data = final_data), na.rm=T) -->
+<!-- summary(lm(scale(FACTS_AGREE) ~ scale(condition), data = final_data), na.rm=T) -->
+<!-- ################### Trust -->
+<!-- ####################################################### graph.data2 <- -->
+<!-- final_data %>% group_by(condition) %>% summarise( "mean.trust" = mean(TRUST, -->
+<!-- na.rm = TRUE), "sd.trust" = sd(TRUST, na.rm = TRUE), "N" = length(TRUST), ) %>% -->
+<!-- mutate("se.trust" = sd.trust/ sqrt(N)) ggplot(data = graph.data2, aes(x = -->
+<!-- as.factor(condition), y = mean.trust)) + geom_bar(stat = "identity", color = -->
+<!-- "blue", position = position_dodge()) + geom_errorbar(width = .5, aes(ymin = -->
+<!-- mean.trust - se.trust, ymax = mean.trust + se.trust), position = -->
+<!-- position_dodge(.9))  + labs(x = "Condition", y = "Percieved trust", title = -->
+<!-- "Perception of trust") + theme_classic() -->
+<!-- ################### Baisness -->
+<!-- ####################################################### graph.data3 <- -->
+<!-- final_data %>% group_by(condition) %>% summarise( "mean.biased" = mean(BIASED, -->
+<!-- na.rm = TRUE), "sd.biased" = sd(BIASED, na.rm = TRUE), "N" = length(BIASED), ) -->
+<!-- %>% mutate("se.biased" = sd.biased/ sqrt(N)) ggplot(data = graph.data3, aes(x = -->
+<!-- as.factor(condition), y = mean.biased)) + geom_bar(stat = "identity", color = -->
+<!-- "blue", position = position_dodge()) + geom_errorbar(width = .5, aes(ymin = -->
+<!-- mean.biased - se.biased, ymax = mean.biased + se.biased), position = -->
+<!-- position_dodge(.9))  + labs(x = "Condition", y = "Percieved baisness", title = -->
+<!-- "Perception of baisness") + theme_classic() -->
+<!-- ################### Fairness -->
+<!-- ####################################################### graph.data4 <- -->
+<!-- final_data %>% group_by(condition) %>% summarise( "mean.fair" = mean(FAIR, na.rm -->
+<!-- = TRUE), "sd.fair" = sd(FAIR, na.rm = TRUE), "N" = length(FAIR), ) %>% -->
+<!-- mutate("se.fair" = sd.fair/ sqrt(N)) ggplot(data = graph.data4, aes(x = -->
+<!-- as.factor(condition), y = mean.fair)) + geom_bar(stat = "identity", color = -->
+<!-- "blue", position = position_dodge()) + geom_errorbar(width = .5, aes(ymin = -->
+<!-- mean.fair - se.fair, ymax = mean.fair + se.fair), position = position_dodge(.9)) -->
+<!-- + labs(x = "Condition", y = "Percieved Fairness", title = "Perception of -->
+<!-- Fairness") + theme_classic() -->
+<!-- ################### Agreeableness -->
+<!-- ####################################################### -->
+<!-- graph.data5 <- final_data %>% group_by(condition) %>% summarise( "mean.agree" = -->
+<!-- mean(AGREE, na.rm = TRUE), "sd.agree" = sd(AGREE, na.rm = TRUE), "N" = -->
+<!-- length(AGREE), ) %>% mutate("se.agree" = sd.agree/ sqrt(N)) ggplot(data = -->
+<!-- graph.data5, aes(x = as.factor(condition), y = mean.agree)) + geom_bar(stat = -->
+<!-- "identity", color = "blue", position = position_dodge()) + geom_errorbar(width = -->
+<!-- .5, aes(ymin = mean.agree - se.agree, ymax = mean.agree + se.agree), position = -->
+<!-- position_dodge(.9))  + labs(x = "Condition", y = "Percieved Agreeableness", -->
+<!-- title = "Perception of Agreeableness") + theme_classic() -->
+<!-- ## for 1st scenario there exist significant difference in agreeability and -->
+<!-- trust. So we do factorial ANOVA to find the where is the difference. -->
+<!-- final_data$contrast_c1 <- NA final_data$contrast_c2<- NA -->
+<!-- final_data$contrast_c1[which(final_data$condition==2)] <- -1 -->
+<!-- final_data$contrast_c1[which(final_data$condition==1)] <- 0.5 -->
+<!-- final_data$contrast_c1[which(final_data$condition==3)] <- 0.5 -->
+<!-- final_data$contrast_c2[which(final_data$condition==2)] <- 0 -->
+<!-- final_data$contrast_c2[which(final_data$condition==1)] <- -1 -->
+<!-- final_data$contrast_c2[which(final_data$condition==3)] <- 1 -->
+<!-- # To run the contrasts: anova(lm(TRUST ~ contrast_c1 + contrast_c2, data = -->
+<!-- final_data)) anova(lm(FAIR ~ contrast_c1 + contrast_c2, data = final_data)) -->
+<!-- anova(lm(BIASED ~ contrast_c1 + contrast_c2, data = final_data)) anova(lm(AGREE -->
+<!-- ~ contrast_c1 + contrast_c2, data = final_data)) -->
+<!-- anova(lm(CIVIL_TRUST ~ contrast_c1 + contrast_c2, data = final_data)) -->
+<!-- anova(lm(CIVIL_FAIR ~ contrast_c1 + contrast_c2, data = final_data)) -->
+<!-- anova(lm(CIVIL_BIASED ~ contrast_c1 + contrast_c2, data = final_data)) -->
+<!-- anova(lm(CIVIL_AGREE ~ contrast_c1 + contrast_c2, data = final_data)) -->
+<!-- anova(lm(FACTS_TRUST ~ contrast_c1 + contrast_c2, data = final_data)) -->
+<!-- anova(lm(FACTS_FAIR ~ contrast_c1 + contrast_c2, data = final_data)) -->
+<!-- anova(lm(FACTS_BIASED ~ contrast_c1 + contrast_c2, data = final_data)) -->
+<!-- anova(lm(FACTS_AGREE ~ contrast_c1 + contrast_c2, data = final_data)) -->
+<!-- ####### rest is redundant -->
+<!-- ########################################################### # Contrast 1: -->
+<!-- require(ggplot2) require(dplyr) require(ggpubr) graph.data1 <- final_data %>% -->
+<!-- filter(!is.na(contrast_c1),contrast_c1 != 0) %>% group_by(contrast_c1) %>% -->
+<!-- summarise( mean = mean(TRUST, na.rm = T), sd = sd(TRUST, na.rm = T), N = -->
+<!-- length(TRUST)) %>% mutate(se = sd/sqrt(N)) -->
+<!-- graph.data1$contrast_c1_for.graphing <- c("Condition2","other conditions") -->
+<!-- g1 <- ggplot(data = graph.data1, aes(x = contrast_c1_for.graphing, y = mean)) + -->
+<!-- geom_bar(stat="identity", color = "black") + geom_errorbar(width = .3, aes(ymin -->
+<!-- = mean - se, ymax = mean + se)) + theme_classic() + labs(y = "Frequency of -->
+<!-- Trust", x = "Conditions", title = "Contrast 1") + scale_y_continuous(limits = -->
+<!-- c(0,7)) -->
+<!-- # Contrast 2: graph.data2 <- final_data %>% -->
+<!-- filter(!is.na(contrast_c2),contrast_c2 != 0) %>% group_by(contrast_c2) %>% -->
+<!-- summarise( mean = mean(TRUST, na.rm = T), sd = sd(TRUST, na.rm = T), N = -->
+<!-- length(TRUST)) %>% mutate(se = sd/sqrt(N)) -->
+<!-- graph.data2$contrast_c2_for.graphing <- c("Condition1","Condition3") -->
+<!-- g2 <- ggplot(data = graph.data2, aes(x = contrast_c2_for.graphing, y = mean)) + -->
+<!-- geom_bar(stat="identity", color = "black") + geom_errorbar(width = .3, aes(ymin -->
+<!-- = mean - se, ymax = mean + se)) + theme_classic() + labs(y = "Frequency of -->
+<!-- Trust", x = "Conditions", title = "Contrast 2") + scale_y_continuous(limits = -->
+<!-- c(0,7)) -->
+<!-- ggarrange(g1,g2) -->
+
+
+
+```{r Plots for overall results for study1}
+USstudy1.d1 <- final_data %>% group_by(condition) %>% summarise(
+  "mean_trust" = mean(as.numeric(mean.trust), na.rm = TRUE),
+  "sd.trust" = sd(as.numeric(mean.trust), na.rm = TRUE),
+  "N" = length(mean.trust),
+) %>% mutate("se.trust" = sd.trust/ sqrt(N))
+US.s1g1<-ggplot(data = USstudy1.d1, aes(x = as.factor(condition), y = mean_trust, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean_trust - se.trust, 
+                    ymax = mean_trust + se.trust), position = position_dodge(.9))  + 
+  labs(x = "conditions",
+       y = "Percieved Trust",
+       title = "Perception of Trust by agents") + 
+  theme_classic()
+
+USstudy1.d2 <- final_data %>% group_by(condition) %>% summarise(
+  "mean_biased" = mean(as.numeric(mean.biased), na.rm = TRUE),
+  "sd.biased" = sd(as.numeric(mean.biased), na.rm = TRUE),
+  "N" = length(mean.biased),
+) %>% mutate("se.biased" = sd.biased/ sqrt(N))
+US.s1g2<-ggplot(data = USstudy1.d2, aes(x = as.factor(condition), y = mean_biased, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean_biased - se.biased, 
+                    ymax = mean_biased + se.biased), position = position_dodge(.9))  + 
+  labs(x = "conditions",
+       y = "Percieved Biasness",
+       title = "Perception of Biasness by agents") + 
+  theme_classic()
+
+
+
+USstudy1.d3 <- final_data %>% group_by(condition) %>% summarise(
+  "mean_fair" = mean(as.numeric(mean.fair), na.rm = TRUE),
+  "sd.fair" = sd(as.numeric(mean.fair), na.rm = TRUE),
+  "N" = length(mean.fair),
+) %>% mutate("se.fair" = sd.fair/ sqrt(N))
+US.s1g3<-ggplot(data = USstudy1.d3, aes(x = as.factor(condition), y = mean_fair, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean_fair - se.fair, 
+                    ymax = mean_fair + se.fair), position = position_dodge(.9))  + 
+  labs(x = "conditions",
+       y = "Percieved Fairness",
+       title = "Perception of Fairness by agents") + 
+  theme_classic()
+
+USstudy1.d4 <- final_data %>% group_by(condition) %>% summarise(
+  "mean_agree" = mean(as.numeric(mean.agree), na.rm = TRUE),
+  "sd.agree" = sd(as.numeric(mean.agree), na.rm = TRUE),
+  "N" = length(mean.agree),
+) %>% mutate("se.agree" = sd.agree/ sqrt(N))
+US.s1g4<-ggplot(data = USstudy1.d4, aes(x = as.factor(condition), y = mean_agree, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean_agree - se.agree, 
+                    ymax = mean_agree + se.agree), position = position_dodge(.9))  + 
+  labs(x = "Conditions",
+       y = "Percieved Agreeability",
+       title = "Perception of Agreeability by conditions") + 
+  theme_classic()
+
+ggarrange(US.s1g1,US.s1g2,US.s1g3,US.s1g4)
+ggsave("US study1 combined plots.jpeg")
+```
+
+```{r plots for combined results for study2}
+USstudy2.d1 <- final_data %>% group_by(condition) %>% summarise(
+  "mean_cred" = mean(as.numeric(s2mean.cred), na.rm = TRUE),
+  "sd.cred" = sd(as.numeric(s2mean.cred), na.rm = TRUE),
+  "N" = length(s2mean.cred),
+) %>% mutate("se.cred" = sd.cred/ sqrt(N))
+US.s2g1<-ggplot(data = USstudy2.d1, aes(x = as.factor(condition), y = mean_cred, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean_cred - se.cred, 
+                    ymax = mean_cred + se.cred), position = position_dodge(.9))  + 
+  labs(x = "conditions",
+       y = "Percieved Trust",
+       title = "Perception of Trust by agents") + 
+  theme_classic()
+
+USstudy2.d2 <- final_data %>% group_by(condition) %>% summarise(
+  "mean_biased" = mean(as.numeric(s2mean.biased), na.rm = TRUE),
+  "sd.biased" = sd(as.numeric(s2mean.biased), na.rm = TRUE),
+  "N" = length(s2mean.biased),
+) %>% mutate("se.biased" = sd.biased/ sqrt(N))
+US.s2g2<-ggplot(data = USstudy2.d2, aes(x = as.factor(condition), y = mean_biased, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean_biased - se.biased, 
+                    ymax = mean_biased + se.biased), position = position_dodge(.9))  + 
+  labs(x = "conditions",
+       y = "Percieved Biasness",
+       title = "Perception of Biasness by agents") + 
+  theme_classic()
+
+
+
+USstudy2.d3 <- final_data %>% group_by(condition) %>% summarise(
+  "mean_quality" = mean(as.numeric(s2mean.quality), na.rm = TRUE),
+  "sd.quality" = sd(as.numeric(s2mean.quality), na.rm = TRUE),
+  "N" = length(s2mean.quality),
+) %>% mutate("se.quality" = sd.quality/ sqrt(N))
+US.s2g3<-ggplot(data = USstudy2.d3, aes(x = as.factor(condition), y = mean_quality, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean_quality - se.quality, 
+                    ymax = mean_quality + se.quality), position = position_dodge(.9))  + 
+  labs(x = "conditions",
+       y = "Percieved Quality",
+       title = "Perception of Quality by agents") + 
+  theme_classic()
+
+USstudy2.d4 <- final_data %>% group_by(condition) %>% summarise(
+  "mean_agree" = mean(as.numeric(s2mean.agree), na.rm = TRUE),
+  "sd.agree" = sd(as.numeric(s2mean.agree), na.rm = TRUE),
+  "N" = length(s2mean.agree),
+) %>% mutate("se.agree" = sd.agree/ sqrt(N))
+US.s2g4<-ggplot(data = USstudy2.d4, aes(x = as.factor(condition), y = mean_agree, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean_agree - se.agree, 
+                    ymax = mean_agree + se.agree), position = position_dodge(.9))  + 
+  labs(x = "Conditions",
+       y = "Percieved Agreeability",
+       title = "Perception of Agreeability by conditions") + 
+  theme_classic()
+
+ggarrange(US.s2g1,US.s2g2,US.s2g3,US.s2g4)
+ggsave("US study2 combined plots.jpeg")
+```
+
+
+
+

@@ -1,0 +1,237 @@
+---
+title: "Poland_data"
+author: "arti"
+date: "2/13/2020"
+output: html_document
+---
+#This project is statistical analysis for a 3X1 facotrial experiment. Experiment contain four scenarios for each of three conditions.
+# The conditions involve AI, Human and Human aided by AI. each of these are summy coded # to run the regression model.
+# TRUST, CREDEBILITY, QUALITY, AND FAIRNESS are the dependent variables as perceived by #participants. conditions is independent variable.
+
+# Step-1: pre-process data to remove participants who failed the required checks.
+# Step-2: Plot the over all projection for 3 issues in each of three conditions
+# Step-3: run ANOVA
+# Step-4: run multiple regression models.
+
+```{r}
+library(writexl)
+require(dplyr)
+library(haven)
+```
+
+```{r loading data}
+poland.data <- read_sav("C:\\Users\\arti\\Documents\\M-data and analysis\\AI EXP PL Eng.sav")
+poland_final_data = poland.data %>% filter((filter1!=1 | filter2!=1 | filter3 !=1 | filter4!=1 ) & attn==2)
+poland_final_data$survey_finish_time <- as.numeric(poland_final_data$survey_finish_time)
+class(poland_final_data$survey_finish_time)
+
+median(as.numeric(poland.data$survey_finish_time))
+quantile(poland.data$survey_finish_time)
+
+#excluding-speeders
+poland_final_data<-poland_final_data %>%filter(survey_finish_time > 337.92)
+nrow(poland_final_data)
+
+#### excluding duplicates
+poland_final_data <- poland_final_data %>% distinct(pid, .keep_all = T)
+nrow(poland_final_data)
+
+
+```
+
+```{r}
+#combining the three variables created for each question for three conditions for Scenario-1.
+
+# Cond1FairS1, Cond2FairS1,Cond3FairS1 combined to make FairS1
+poland_final_data$Cond1FairS1[is.na(poland_final_data$Cond1FairS1)]<-0 #replacing missing values with 0
+poland_final_data$Cond2fairS1[is.na(poland_final_data$Cond2fairS1)]<-0
+poland_final_data$cond3fairS1[is.na(poland_final_data$cond3fairS1)]<-0
+poland_final_data$FAIR_S1 <- poland_final_data$Cond1FairS1 + poland_final_data$Cond2fairS1 + poland_final_data$cond3fairS1
+
+# combining variables for BIAS
+poland_final_data$Cond1BiasS1[is.na(poland_final_data$Cond1BiasS1)]<-0 #replacing missing values with 0
+poland_final_data$Cond2biasS1[is.na(poland_final_data$Cond2biasS1)]<-0
+poland_final_data$cond3biasS1[is.na(poland_final_data$cond3biasS1)]<-0
+poland_final_data$BIAS_S1 <- poland_final_data$Cond1BiasS1 + poland_final_data$Cond2biasS1 + poland_final_data$cond3biasS1
+
+# combining variables for TRUST
+poland_final_data$Cond1trustS1[is.na(poland_final_data$Cond1trustS1)]<-0 #replacing missing values with 0
+poland_final_data$cond2trustS1[is.na(poland_final_data$cond2trustS1)]<-0
+poland_final_data$cond3trustS1[is.na(poland_final_data$cond3trustS1)]<-0
+poland_final_data$TRUST_S1 <- poland_final_data$Cond1trustS1 + poland_final_data$cond2trustS1 + poland_final_data$cond3trustS1
+
+# combining variables for LEGIT
+poland_final_data$Cond1legitS1[is.na(poland_final_data$Cond1legitS1)]<-0 #replacing missing values with 0
+poland_final_data$cond2legitS1[is.na(poland_final_data$cond2legitS1)]<-0
+poland_final_data$cond3legitS1[is.na(poland_final_data$cond3legitS1)]<-0
+poland_final_data$LEGIT_S1 <- poland_final_data$Cond1legitS1 + poland_final_data$cond2legitS1 + poland_final_data$cond3legitS1
+```
+
+
+```{r combining variabled for scenario-2}
+# Cond1FairS2, Cond2FairS2,Cond3FairS2 combined to make FairS2
+poland_final_data$Cond1fairS2[is.na(poland_final_data$Cond1fairS2)]<-0 #replacing missing values with 0
+poland_final_data$Cond2fairS2[is.na(poland_final_data$Cond2fairS2)]<-0
+poland_final_data$Cond3fairS2[is.na(poland_final_data$Cond3fairS2)]<-0
+poland_final_data$FAIR_S2 <- poland_final_data$Cond1fairS2 + poland_final_data$Cond2fairS2 + poland_final_data$Cond3fairS2
+
+# combining variables for BIAS
+poland_final_data$Cond1biasS2[is.na(poland_final_data$Cond1biasS2)]<-0 #replacing missing values with 0
+poland_final_data$Cond2biasS2[is.na(poland_final_data$Cond2biasS2)]<-0
+poland_final_data$Cond3BiasS2[is.na(poland_final_data$Cond3BiasS2)]<-0
+poland_final_data$BIAS_S2 <- poland_final_data$Cond1biasS2 + poland_final_data$Cond2biasS2 + poland_final_data$Cond3BiasS2
+
+# combining variables for TRUST
+poland_final_data$Cond1TrustS2[is.na(poland_final_data$Cond1TrustS2)]<-0 #replacing missing values with 0
+poland_final_data$Cond2trustS2[is.na(poland_final_data$Cond2trustS2)]<-0
+poland_final_data$Cond3TrustS2[is.na(poland_final_data$Cond3TrustS2)]<-0
+poland_final_data$TRUST_S2 <- poland_final_data$Cond1TrustS2 + poland_final_data$Cond2trustS2 + poland_final_data$Cond3TrustS2
+
+# combining variables for LEGIT
+poland_final_data$Cond1legitS2[is.na(poland_final_data$Cond1legitS2)]<-0 #replacing missing values with 0
+poland_final_data$Cond2legitS2[is.na(poland_final_data$Cond2legitS2)]<-0
+poland_final_data$Cond3legitS2[is.na(poland_final_data$Cond3legitS2)]<-0
+poland_final_data$LEGIT_S2 <- poland_final_data$Cond1legitS2 + poland_final_data$Cond2legitS2 + poland_final_data$Cond3legitS2
+```
+
+```{r combining variabled for scenario-3}
+# Cond1FairS3, Cond2FairS3,Cond3FairS3 combined to make FairS3
+poland_final_data$Cond1fairS3[is.na(poland_final_data$Cond1fairS3)]<-0 #replacing missing values with 0
+poland_final_data$Cond2fairS3[is.na(poland_final_data$Cond2fairS3)]<-0
+poland_final_data$Cond3fairS3[is.na(poland_final_data$Cond3fairS3)]<-0
+poland_final_data$FAIR_S3 <- poland_final_data$Cond1fairS3 + poland_final_data$Cond2fairS3 + poland_final_data$Cond3fairS3
+
+# combining variables for BIAS
+poland_final_data$Cond1biasS3[is.na(poland_final_data$Cond1biasS3)]<-0 #replacing missing values with 0
+poland_final_data$Cond2biasS3[is.na(poland_final_data$Cond2biasS3)]<-0
+poland_final_data$Cond3biasS3[is.na(poland_final_data$Cond3biasS3)]<-0
+poland_final_data$BIAS_S3 <- poland_final_data$Cond1biasS3 + poland_final_data$Cond2biasS3 + poland_final_data$Cond3biasS3
+
+# combining variables for TRUST
+poland_final_data$Cond1trustS3[is.na(poland_final_data$Cond1trustS3)]<-0 #replacing missing values with 0
+poland_final_data$Cond2trustS3[is.na(poland_final_data$Cond2trustS3)]<-0
+poland_final_data$Cond3trustS3[is.na(poland_final_data$Cond3trustS3)]<-0
+poland_final_data$TRUST_S3 <- poland_final_data$Cond1trustS3 + poland_final_data$Cond2trustS3 + poland_final_data$Cond3trustS3
+
+# combining variables for LEGIT
+poland_final_data$Cond1legitS3[is.na(poland_final_data$Cond1legitS3)]<-0 #replacing missing values with 0
+poland_final_data$Cond2legitS3[is.na(poland_final_data$Cond2legitS3)]<-0
+poland_final_data$Cond3legitS3[is.na(poland_final_data$Cond3legitS3)]<-0
+poland_final_data$LEGIT_S3 <- poland_final_data$Cond1legitS3 + poland_final_data$Cond2legitS3 + poland_final_data$Cond3legitS3
+```
+```{r combining variabled for scenario-4}
+# Cond1FairS4, Cond2FairS4,Cond3FairS4 combined to make FairS4
+poland_final_data$Cond1fairS4[is.na(poland_final_data$Cond1fairS4)]<-0 #replacing missing values with 0
+poland_final_data$Cond2fairS4[is.na(poland_final_data$Cond2fairS4)]<-0
+poland_final_data$Cond3fairS4[is.na(poland_final_data$Cond3fairS4)]<-0
+poland_final_data$FAIR_S4 <- poland_final_data$Cond1fairS4 + poland_final_data$Cond2fairS4 + poland_final_data$Cond3fairS4
+
+# combining variables for BIAS
+poland_final_data$Cond1biasS4[is.na(poland_final_data$Cond1biasS4)]<-0 #replacing missing values with 0
+poland_final_data$Cond2biasS4[is.na(poland_final_data$Cond2biasS4)]<-0
+poland_final_data$Cond3biasS4[is.na(poland_final_data$Cond3biasS4)]<-0
+poland_final_data$BIAS_S4 <- poland_final_data$Cond1biasS4 + poland_final_data$Cond2biasS4 + poland_final_data$Cond3biasS4
+
+# combining variables for TRUST
+poland_final_data$Cond1trustS4[is.na(poland_final_data$Cond1trustS4)]<-0 #replacing missing values with 0
+poland_final_data$Cond2trustS4[is.na(poland_final_data$Cond2trustS4)]<-0
+poland_final_data$Cond3trustS4[is.na(poland_final_data$Cond3trustS4)]<-0
+poland_final_data$TRUST_S4 <- poland_final_data$Cond1trustS4 + poland_final_data$Cond2trustS4 + poland_final_data$Cond3trustS4
+
+# combining variables for LEGIT
+poland_final_data$Cond1legitS4[is.na(poland_final_data$Cond1legitS4)]<-0 #replacing missing values with 0
+poland_final_data$Cond2legitS4[is.na(poland_final_data$Cond2legitS4)]<-0
+poland_final_data$Cond3legitS4[is.na(poland_final_data$Cond3legitS4)]<-0
+poland_final_data$LEGIT_S4 <- poland_final_data$Cond1legitS4 + poland_final_data$Cond2legitS4 + poland_final_data$Cond3legitS4
+```
+
+```{r creating summy and mean variables}
+poland_final_data$AI.dummy <- ifelse(poland_final_data$CONDITION %in% c(2,3),0,1)
+poland_final_data$Human.dummy <- ifelse(poland_final_data$CONDITION %in% c(1,3),0,1)
+poland_final_data$AI_Human.dummy <- ifelse(poland_final_data$CONDITION %in% c(1,2),0,1)
+
+poland_final_data$pl1mean.trust <- (poland_final_data$TRUST_S1+poland_final_data$TRUST_S2+ poland_final_data$TRUST_S3+ poland_final_data$TRUST_S4)/4
+poland_final_data$pl1mean.fair <- (poland_final_data$FAIR_S1+poland_final_data$FAIR_S2+ poland_final_data$FAIR_S3+ poland_final_data$FAIR_S4)/4
+poland_final_data$pl1mean.biased <- (poland_final_data$BIAS_S1+poland_final_data$BIAS_S2+ poland_final_data$BIAS_S3+ poland_final_data$BIAS_S4)/4
+poland_final_data$pl1mean.legit <- (poland_final_data$LEGIT_S1+poland_final_data$LEGIT_S2+ poland_final_data$LEGIT_S3+ poland_final_data$LEGIT_S4)/4
+
+#write_xlsx(poland_final_data, "poland_final_data.xlsx")
+```
+
+
+
+```{r randomization check on Income, Gender, Education, Age and Ideology}
+
+summary(aov(scale(CONDITION)~scale(sex) , data = subset(poland_final_data,!is.na(sex))), na.rm=T)
+summary(aov(scale(CONDITION)~scale(education), data = subset(poland_final_data, !is.na(education))), na.rm=T)
+summary(aov(scale(CONDITION)~scale(age), data = subset(poland_final_data, !is.na(age))), na.rm=T)
+summary(aov(scale(CONDITION)~scale(ideology), data = subset(poland_final_data, !is.na(ideology))), na.rm=T)
+
+
+```
+```{r}
+################################################### Overall ######################################################
+summary(aov(scale(pl1mean.trust) ~ scale(CONDITION), data = poland_final_data), na.rm=T)
+summary(aov(scale(pl1mean.fair) ~ scale(CONDITION) , data = poland_final_data), na.rm=T)
+summary(aov(scale(pl1mean.biased) ~ scale(CONDITION) , data = poland_final_data), na.rm=T)
+summary(aov(scale(pl1mean.legit) ~ scale(CONDITION), data = poland_final_data), na.rm=T)
+
+summary(lm(scale(pl1mean.trust) ~ scale(AI.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(pl1mean.fair) ~ scale(AI.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(pl1mean.biased) ~ scale(AI.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(pl1mean.legit) ~ scale(AI.dummy) + scale(AI_Human.dummy), data = poland_final_data), na.rm=T)
+
+summary(lm(scale(pl1mean.trust) ~ scale(Human.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(pl1mean.fair) ~ scale(Human.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(pl1mean.biased) ~ scale(Human.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(pl1mean.legit) ~ scale(Human.dummy) + scale(AI_Human.dummy), data = poland_final_data), na.rm=T)
+
+################################################### Scenari-1 ######################################################
+
+
+summary(lm(scale(TRUST_S1) ~ scale(AI.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(FAIR_S1) ~ scale(AI.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(BIAS_S1) ~ scale(AI.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(LEGIT_S1) ~ scale(AI.dummy) + scale(AI_Human.dummy), data = poland_final_data), na.rm=T)
+
+summary(lm(scale(TRUST_S1) ~ scale(Human.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(FAIR_S1) ~ scale(Human.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(BIAS_S1) ~ scale(Human.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(LEGIT_S1) ~ scale(Human.dummy) + scale(AI_Human.dummy), data = poland_final_data), na.rm=T)
+
+################################################### Scenari-2 ######################################################
+
+summary(lm(scale(TRUST_S2) ~ scale(AI.dummy) + scale(AI_Human.dummy), data = poland_final_data), na.rm=T)
+summary(lm(scale(FAIR_S2) ~ scale(AI.dummy) + scale(AI_Human.dummy), data = poland_final_data), na.rm=T)
+summary(lm(scale(BIAS_S2) ~ scale(AI.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(LEGIT_S2) ~ scale(AI.dummy) + scale(AI_Human.dummy), data = poland_final_data), na.rm=T)
+
+summary(lm(scale(TRUST_S2) ~ scale(Human.dummy) + scale(AI_Human.dummy), data = poland_final_data), na.rm=T)
+summary(lm(scale(FAIR_S2) ~ scale(Human.dummy) + scale(AI_Human.dummy) , data =poland_final_data), na.rm=T)
+summary(lm(scale(BIAS_S2) ~ scale(Human.dummy) + scale(AI_Human.dummy), data = poland_final_data), na.rm=T)
+summary(lm(scale(LEGIT_S2) ~ scale(Human.dummy) + scale(AI_Human.dummy), data = poland_final_data), na.rm=T)
+
+################################################### Scenario-3 ######################################################
+
+summary(lm(scale(TRUST_S3) ~ scale(AI.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(FAIR_S3) ~ scale(AI.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(BIAS_S3) ~ scale(AI.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(LEGIT_S3) ~ scale(AI.dummy) + scale(AI_Human.dummy), data = poland_final_data), na.rm=T)
+
+summary(lm(scale(TRUST_S3) ~ scale(Human.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(FAIR_S3) ~ scale(Human.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(BIAS_S3) ~ scale(Human.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(LEGIT_S3) ~ scale(Human.dummy) + scale(AI_Human.dummy), data = poland_final_data), na.rm=T)
+
+################################################### Scenari-4 ######################################################
+
+summary(lm(scale(TRUST_S4) ~ scale(AI.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(FAIR_S4) ~ scale(AI.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(BIAS_S4) ~ scale(AI.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(LEGIT_S4) ~ scale(AI.dummy) + scale(AI_Human.dummy), data = poland_final_data), na.rm=T)
+
+summary(lm(scale(TRUST_S4) ~ scale(Human.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(FAIR_S4) ~ scale(Human.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(BIAS_S4) ~ scale(Human.dummy) + scale(AI_Human.dummy) , data = poland_final_data), na.rm=T)
+summary(lm(scale(LEGIT_S4) ~ scale(Human.dummy) + scale(AI_Human.dummy), data = poland_final_data), na.rm=T)
+```

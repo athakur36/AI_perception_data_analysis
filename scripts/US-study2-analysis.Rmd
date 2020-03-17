@@ -1,0 +1,550 @@
+---
+title: "study2-analysis"
+author: "arti"
+date: "12/21/2019"
+output: word_document
+---
+#This project is statistical analysis for a 3X2 facotrial experiment involving three #countires. Experiment contain three issues for each of three conditions.
+# The conditions involve AI, Human and Human aided by AI.
+# counter_pro represents the counter attitudnal condition which has value as 1 if the #participants are subjected to counter attitudnal scenarios and 0 otherwise.
+# TRUST, CREDEBILITY, QUALITY, AND FAIRNESS are the dependent variables as perceived by #participants. conditions and counter_pro are independent variables.
+
+# Step-1: pre-process data to remove participants who failed the required checks.
+# Step-2: Plot the over all projection for 3 issues in each of three conditions
+# Step-3: run ANOVA
+# Step-4: run multiple regression models.
+# Step-5: plotting interaction
+# Step-6: run posthoc analysis
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+``
+```
+
+```{r}
+library(agricolae)
+```
+
+```{r }
+'''
+ex.data=read.csv("C:\\Users\\arti\\Documents\\M-data and analysis\\AI Experiment_December 20.csv")
+dat_com = ex.data %>% filter((SOCIAL_1!=1 | SOCIAL_2!=1 | SOCIAL_3 !=1 | SOCIAL_4!=1 ) & CHECK==2)
+dat_com$Duration..in.seconds. <- as.numeric(dat_com$Duration..in.seconds.)
+class(dat_com$Duration..in.seconds.)
+dat_com_str<- dat_com
+median(as.numeric(ex.data$Duration..in.seconds.))
+quantile(ex.data$Duration..in.seconds.)
+
+#excluding-speeders
+dat_com_str_sp<-dat_com_str %>%filter(Duration..in.seconds. > 268.32)
+nrow(dat_com_str_sp)
+
+#### excluding duplicates
+final_data <- dat_com_str_sp %>% distinct(pid, .keep_all = T)
+N<-nrow(final_data)
+'''
+```
+
+```{r}
+'''
+library(dplyr)
+ex.data=read.csv("C:\\Users\\arti\\Documents\\M-data and analysis\\AI Experiment_December 20.csv")
+nrow(ex.data)
+dat_com = ex.data %>% filter(Progress==100 &(SOCIAL_1!=1 | SOCIAL_2!=1 | SOCIAL_3 !=1 | SOCIAL_4!=1 ) & CHECK==2)
+#removing attention check
+#dat_com = ex.data %>% filter((SOCIAL_1!=1 | SOCIAL_2!=1 | SOCIAL_3 !=1 | SOCIAL_4!=1 ))
+nrow(dat_com)
+
+#straightliners for aggregated same options(not consecutive)
+for (r in seq(from=2, to=nrow(dat_com)))
+{
+  a= c(dat_com[r,49:76])
+  for(i in seq(from=1, to=27)){
+    if(r>nrow(dat_com)){
+      #cat("breaking for","j:",j, "=====","i:",i,"====r:",r,"\n")
+      break
+    }
+    #cat("==================================i:",i)
+    count<-1
+    for(j in seq(from=i+1, to=27)){
+      #cat("a[i]:",as.numeric(a[i]), "=====","a[j]:",as.numeric(a[j]),"====r:",r,"\n")
+      if(is.na(a[i]) |is.na(a[j])){
+        #dat_com <- dat_com[-c(r),]
+        break
+      }
+      else if(i<27 & j<=27& as.numeric(a[i]) == as.numeric(a[j])){
+        count<- count+1
+        #print(count)
+      }
+      
+      #print(count)
+    }
+    if(count>=21){
+      #cat("count:",count, "j:",j, "=====","i:",i,"====r:",r,"\n")
+      df<- data.frame(dat_com[r,])
+      #ex_com<-rbind(ex_com, df)
+      dat_com <- dat_com[-c(r),]
+      break
+    }else {count<-1
+    #print("count reinitialized")
+    }
+  }
+}
+nrow(dat_com)
+#nrow(ex_com)
+
+####time quantiles
+dat_com$Duration..in.seconds. <- as.numeric(dat_com$Duration..in.seconds.)
+class(dat_com$Duration..in.seconds.)
+dat_com_str<- dat_com
+median(dat_com$Duration..in.seconds.)
+quantile(dat_com$Duration..in.seconds.)
+
+#excluding-speeders
+dat_com_str_sp<-dat_com_str %>%
+  filter(Duration..in.seconds. > 274.4)
+nrow(dat_com_str_sp)
+
+#### excluding duplicates
+final_data <- dat_com_str_sp %>% distinct(pid, .keep_all = T)
+nrow(final_data)
+'''
+```
+
+```{r creating dummy variable}
+'''
+final_data$AI.dummy <- ifelse(final_data$condition %in% c(2,3),0,1)
+final_data$Human.dummy <- ifelse(final_data$condition %in% c(1,3),0,1)
+final_data$AI_Human.dummy <- ifelse(final_data$condition %in% c(1,2),0,1)
+nrow(final_data)
+'''
+```
+```{r - randomization check}
+summary(aov(scale(condition)~scale(RACE), data = subset(final_data, !is.na(RACE)) ), na.rm=T)
+summary(aov(scale(condition)~scale(GENDER) , data = subset(final_data,!is.na(GENDER))), na.rm=T)
+summary(aov(scale(condition)~scale(EDU), data = subset(final_data, !is.na(EDU))), na.rm=T)
+summary(aov(scale(condition)~scale(AGE_CAT), data = subset(final_data, !is.na(AGE_CAT))), na.rm=T)
+summary(aov(scale(condition)~scale(PARTY7), data = subset(final_data, !is.na(PARTY7))), na.rm=T)
+summary(aov(scale(condition)~scale(IDEO_1), data = subset(final_data, !is.na(IDEO_1))), na.rm=T)
+summary(aov(scale(condition)~scale(FOLLOW), data = subset(final_data, !is.na(FOLLOW))), na.rm=T)
+summary(aov(scale(condition)~scale(AI_2), data = subset(final_data, !is.na(AI_2))), na.rm=T)
+```
+
+
+```{r for graphs}
+s2_1<- final_data %>% select("IMM_AGREE","IMM_QUALITY","IMM_CRED","IMM_BIASED", "condition","AI.dummy","Human.dummy","AI_Human.dummy", "attitude.dummy", "EDU")
+s2_1[ncol(s2_1)+1]<- rep(1, N)
+s2_2<- final_data %>% select("BEN_AGREE","BEN_QUALITY","BEN_CRED","BEN_BIASED", "condition","AI.dummy","Human.dummy","AI_Human.dummy", "attitude.dummy", "EDU")
+s2_2[ncol(s2_2)+1]<- rep(2, N)
+s2_3<- final_data %>% select("TE_AGREE","TE_QUALITY","TE_CRED","TE_BIASED", "condition","AI.dummy","Human.dummy","AI_Human.dummy", "attitude.dummy", "EDU")
+s2_3[ncol(s2_3)+1]<- rep(3, N)
+
+
+colnames(s2_1)[which(names(s2_1) == "IMM_AGREE")] <- "AGREE"
+colnames(s2_2)[which(names(s2_2) == "BEN_AGREE")] <- "AGREE"
+colnames(s2_3)[which(names(s2_3) == "TE_AGREE")] <- "AGREE"
+colnames(s2_1)[which(names(s2_1) == "IMM_QUALITY")] <- "QUALITY"
+colnames(s2_2)[which(names(s2_2) == "BEN_QUALITY")] <- "QUALITY"
+colnames(s2_3)[which(names(s2_3) == "TE_QUALITY")] <- "QUALITY"
+colnames(s2_1)[which(names(s2_1) == "IMM_CRED")] <- "CRED"
+colnames(s2_2)[which(names(s2_2) == "BEN_CRED")] <- "CRED"
+colnames(s2_3)[which(names(s2_3) == "TE_CRED")] <- "CRED"
+colnames(s2_1)[which(names(s2_1) == "IMM_BIASED")] <- "BIASED"
+colnames(s2_2)[which(names(s2_2) == "BEN_BIASED")] <- "BIASED"
+colnames(s2_3)[which(names(s2_3) == "TE_BIASED")] <- "BIASED"
+
+df2<- rbind(s2_1,s2_2,s2_3)
+colnames(df2)[which(names(df2) == "V11")] <- "issue" 
+
+```
+```{r creating mean DV variables and counter attitude variable}
+final_data$s2mean.agree <- (final_data$IMM_AGREE+final_data$BEN_AGREE+ final_data$TE_AGREE)/3
+final_data$s2mean.quality <- (final_data$IMM_QUALITY+final_data$BEN_QUALITY+ final_data$TE_QUALITY)/3
+final_data$s2mean.cred <- (final_data$IMM_CRED+final_data$BEN_CRED+ final_data$TE_CRED)/3
+final_data$s2mean.biased <- (final_data$IMM_BIASED+final_data$BEN_BIASED+ final_data$TE_BIASED)/3
+final_data$counter_pro <- ifelse(final_data$pro %in% c(1),0,1)
+write_xlsx(final_data, "US_final_data.xlsx")
+```
+
+```{r graphs}
+#plots
+require(ggplot2)
+require(dplyr)
+require(ggpubr)
+
+study2.data1 <- df2 %>% group_by(scenario, condition) %>% summarise(
+  "mean.quality" = mean(as.numeric(QUALITY),na.rm=TRUE),
+  "sd.quality" = sd(as.numeric(QUALITY), na.rm = TRUE),
+  "N" = length(QUALITY),
+) %>% mutate("se.quality" = sd.quality/ sqrt(N))
+s2_g1<-ggplot(data = study2.data1, aes(x = as.factor(scenario), y = mean.quality, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean.quality - se.quality, 
+                    ymax = mean.quality + se.quality), position = position_dodge(.9))  + 
+  labs(x = "Scenarios",
+       y = "Percieved Quality",
+       title = "Perception of Quality by agents") + 
+  theme_classic()
+
+study2.data2 <- df2 %>% group_by(scenario, condition) %>% summarise(
+  "mean.biased" = mean(as.numeric(BIASED), na.rm = TRUE),
+  "sd.biased" = sd(as.numeric(BIASED), na.rm = TRUE),
+  "N" = length(BIASED),
+) %>% mutate("se.biased" = sd.biased/ sqrt(N))
+s2_g2<-ggplot(data = study2.data2, aes(x = as.factor(scenario), y = mean.biased, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean.biased - se.biased, 
+                    ymax = mean.biased + se.biased), position = position_dodge(.9))  + 
+  labs(x = "Scenarios",
+       y = "Percieved Biasness",
+       title = "Perception of Biasness by agents") + 
+  theme_classic()
+
+
+
+study2.data3 <- df2 %>% group_by(scenario, condition) %>% summarise(
+  "mean.cred" = mean(as.numeric(CRED), na.rm = TRUE),
+  "sd.cred" = sd(as.numeric(CRED), na.rm = TRUE),
+  "N" = length(CRED),
+) %>% mutate("se.cred" = sd.cred/ sqrt(N))
+s2_g3<-ggplot(data = study2.data3, aes(x = as.factor(scenario), y = mean.cred, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean.cred - se.cred, 
+                    ymax = mean.cred + se.cred), position = position_dodge(.9))  + 
+  labs(x = "Scenarios",
+       y = "Percieved credibility in decision",
+       title = "Perception of credibility by agents") + 
+  theme_classic()
+
+study2.data4 <- df2 %>% group_by(scenario,condition) %>% summarise(
+  "mean.agree" = mean(as.numeric(AGREE), na.rm = TRUE),
+  "sd.agree" = sd(as.numeric(AGREE), na.rm = TRUE),
+  "N" = length(AGREE),
+) %>% mutate("se.agree" = sd.agree/ sqrt(N))
+s2_g4<-ggplot(data = study2.data4, aes(x = as.factor(scenario), y = mean.agree, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean.agree - se.agree, 
+                    ymax = mean.agree + se.agree), position = position_dodge(.9))  + 
+  labs(x = "Scenarios",
+       y = "Percieved Agreeability",
+       title = "Perception of Agreeability by conditions") + 
+  theme_classic()
+
+ggarrange(s2_g1,s2_g2,s2_g3,s2_g4)
+```
+```{r}
+study2.data1 <- df2 %>% group_by(condition) %>% summarise(
+  "mean.quality" = mean(as.numeric(QUALITY),na.rm=TRUE),
+  "sd.quality" = sd(as.numeric(QUALITY), na.rm = TRUE),
+  "N" = length(QUALITY),
+) %>% mutate("se.quality" = sd.quality/ sqrt(N))
+s2_g1<-ggplot(data = study2.data1, aes(x = as.factor(condition), y = mean.quality, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean.quality - se.quality, 
+                    ymax = mean.quality + se.quality), position = position_dodge(.9))  + 
+  labs(x = "conditions",
+       y = "Percieved Quality",
+       title = "Perception of Quality by agents") + 
+  theme_classic()
+
+study2.data2 <- df2 %>% group_by(condition) %>% summarise(
+  "mean.biased" = mean(as.numeric(BIASED), na.rm = TRUE),
+  "sd.biased" = sd(as.numeric(BIASED), na.rm = TRUE),
+  "N" = length(BIASED),
+) %>% mutate("se.biased" = sd.biased/ sqrt(N))
+s2_g2<-ggplot(data = study2.data2, aes(x = as.factor(condition), y = mean.biased, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean.biased - se.biased, 
+                    ymax = mean.biased + se.biased), position = position_dodge(.9))  + 
+  labs(x = "conditions",
+       y = "Percieved Biasness",
+       title = "Perception of Biasness by agents") + 
+  theme_classic()
+
+
+
+study2.data3 <- df2 %>% group_by(condition) %>% summarise(
+  "mean.cred" = mean(as.numeric(CRED), na.rm = TRUE),
+  "sd.cred" = sd(as.numeric(CRED), na.rm = TRUE),
+  "N" = length(CRED),
+) %>% mutate("se.cred" = sd.cred/ sqrt(N))
+s2_g3<-ggplot(data = study2.data3, aes(x = as.factor(condition), y = mean.cred, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean.cred - se.cred, 
+                    ymax = mean.cred + se.cred), position = position_dodge(.9))  + 
+  labs(x = "Conditions",
+       y = "Percieved credibility in decision",
+       title = "Perception of credibility by agents") + 
+  theme_classic()
+
+study2.data4 <- df2 %>% group_by(condition) %>% summarise(
+  "mean.agree" = mean(as.numeric(AGREE), na.rm = TRUE),
+  "sd.agree" = sd(as.numeric(AGREE), na.rm = TRUE),
+  "N" = length(AGREE),
+) %>% mutate("se.agree" = sd.agree/ sqrt(N))
+s2_g4<-ggplot(data = study2.data4, aes(x = as.factor(condition), y = mean.agree, fill = as.factor(condition))) + 
+  geom_bar(stat = "identity",
+           color = "orange", position = position_dodge()) + 
+  scale_fill_manual(values = c(blues9, "blue", "naviblue"),
+                    "Conditions") + 
+  geom_errorbar(width = .5, 
+                aes(ymin = mean.agree - se.agree, 
+                    ymax = mean.agree + se.agree), position = position_dodge(.9))  + 
+  labs(x = "Conditions",
+       y = "Percieved Agreeability",
+       title = "Perception of Agreeability by conditions") + 
+  theme_classic()
+
+ggarrange(s2_g1,s2_g2,s2_g3,s2_g4)
+```
+
+```{r ANOVA and liner regression}
+
+
+
+summary(aov((s2mean.agree) ~ (AI.dummy) + (Human.dummy)+ (counter_pro) +(EDU) , data = final_data), na.rm=T)
+summary(aov((s2mean.quality) ~ (AI.dummy) + (Human.dummy) + (counter_pro)+(EDU), data = final_data), na.rm=T)
+summary(aov((s2mean.biased) ~ (AI.dummy) + (Human.dummy)+ (counter_pro) +(EDU), data = final_data), na.rm=T)
+summary(aov((s2mean.cred) ~ (AI.dummy) + (Human.dummy)+ (counter_pro)+(EDU), data = final_data), na.rm=T)
+
+############################################################Overall######################################################################################
+#overall dependent variable is mean of DV across the issues.
+
+summary(lm((s2mean.cred) ~ (AI.dummy) + (AI_Human.dummy)+ (counter_pro) +(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((s2mean.quality) ~ (AI.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((s2mean.agree) ~ (AI.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((s2mean.biased) ~ (AI.dummy) + (AI_Human.dummy)+ (counter_pro)+(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+
+summary(lm((s2mean.cred) ~ (Human.dummy) + (AI_Human.dummy)+ (counter_pro) +(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((s2mean.quality) ~ (Human.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((s2mean.agree) ~ (Human.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((s2mean.biased) ~ (Human.dummy) + (AI_Human.dummy)+ (counter_pro)+(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+
+############################################################ Issue1 ######################################################################################
+summary(lm((IMM_CRED) ~ (AI.dummy) + (AI_Human.dummy)+ (counter_pro) +(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((IMM_QUALITY) ~ (AI.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((IMM_AGREE) ~ (AI.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((IMM_BIASED) ~ (AI.dummy) + (AI_Human.dummy)+ (counter_pro)+(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+
+summary(lm((IMM_CRED) ~ (Human.dummy) + (AI_Human.dummy)+ (counter_pro) +(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((IMM_QUALITY) ~ (Human.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((IMM_AGREE) ~ (Human.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((IMM_BIASED) ~ (Human.dummy) + (AI_Human.dummy)+ (counter_pro)+(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+
+############################################################### Issue2 ###################################################################################
+summary(lm((BEN_CRED) ~ (AI.dummy) + (AI_Human.dummy)+ (counter_pro) +(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((BEN_QUALITY) ~ (AI.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((BEN_AGREE) ~ (AI.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((BEN_BIASED) ~ (AI.dummy) + (AI_Human.dummy)+ (counter_pro)+(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+
+summary(lm((BEN_CRED) ~ (Human.dummy) + (AI_Human.dummy)+ (counter_pro) +(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((BEN_QUALITY) ~ (Human.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((BEN_AGREE) ~ (Human.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((BEN_BIASED) ~ (Human.dummy) + (AI_Human.dummy)+ (counter_pro)+(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+
+################################################################# Issue3 #################################################################################
+summary(lm((TE_CRED) ~ (AI.dummy) + (AI_Human.dummy)+ (counter_pro) +(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((TE_QUALITY) ~ (AI.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((TE_AGREE) ~ (AI.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((TE_BIASED) ~ (AI.dummy) + (AI_Human.dummy)+ (counter_pro)+(EDU)+ (AI.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+
+summary(lm((TE_CRED) ~ (Human.dummy) + (AI_Human.dummy)+ (counter_pro) +(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((TE_QUALITY) ~ (Human.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((TE_AGREE) ~ (Human.dummy) + (AI_Human.dummy) + (counter_pro)+(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+summary(lm((TE_BIASED) ~ (Human.dummy) + (AI_Human.dummy)+ (counter_pro)+(EDU)+ (Human.dummy)*(counter_pro)+ (AI_Human.dummy)*(counter_pro), data = final_data), na.rm=T)
+
+
+```
+
+```{r plotting interactions}
+library(sjPlot)
+library(sjmisc)
+library(ggplot2)
+data(efc)
+theme_set(theme_sjplot())
+
+fit1<- lm(formula = scale(BIASED) ~ Human.dummy + AI_Human.dummy + 
+    attitude.dummy + scale(EDU) + Human.dummy * 
+    attitude.dummy + AI_Human.dummy * attitude.dummy, 
+    data = df2)
+plot_model(fit1, type = "pred", terms = c( "attitude.dummy", "AI_Human.dummy"))
+plot_model(fit1, type = "pred", terms = c("attitude.dummy", "Human.dummy"))
+fit2<- lm(formula = scale(AGREE) ~ Human.dummy + AI_Human.dummy + 
+    attitude.dummy + scale(EDU) + Human.dummy * 
+    attitude.dummy + AI_Human.dummy * attitude.dummy, 
+    data = df2)
+plot_model(fit2, type = "pred", terms = c( "attitude.dummy", "AI_Human.dummy"))
+plot_model(fit2, type = "pred", terms = c("attitude.dummy", "Human.dummy"))
+fit3<- lm(formula = scale(QUALITY) ~ Human.dummy + AI_Human.dummy + 
+    attitude.dummy + scale(EDU) + Human.dummy * 
+    attitude.dummy + AI_Human.dummy * attitude.dummy, 
+    data = df2)
+plot_model(fit3, type = "pred", terms = c( "attitude.dummy", "AI_Human.dummy"))
+plot_model(fit3, type = "pred", terms = c("attitude.dummy", "Human.dummy"))
+
+fit4<- lm(formula = scale(CRED) ~ Human.dummy + AI_Human.dummy + 
+    attitude.dummy + scale(EDU) + Human.dummy * 
+    attitude.dummy + AI_Human.dummy * attitude.dummy, 
+    data = df2)
+plot_model(fit4, type = "pred", terms = c( "attitude.dummy", "AI_Human.dummy"))
+plot_model(fit4, type = "pred", terms = c("attitude.dummy", "Human.dummy"))
+
+fit5<- lm(formula = scale(BIASED) ~ AI.dummy + AI_Human.dummy + 
+    attitude.dummy + scale(EDU) + AI.dummy * 
+    attitude.dummy + AI_Human.dummy * attitude.dummy, 
+    data = df2)
+plot_model(fit5, type = "pred", terms = c( "attitude.dummy", "AI_Human.dummy"))
+plot_model(fit5, type = "pred", terms = c("attitude.dummy", "AI.dummy"))
+
+fit6<- lm(formula = scale(AGREE) ~ AI.dummy + AI_Human.dummy + 
+    attitude.dummy + scale(EDU) + AI.dummy * 
+    attitude.dummy + AI_Human.dummy * attitude.dummy, 
+    data = df2)
+plot_model(fit6, type = "pred", terms = c( "attitude.dummy", "AI_Human.dummy"))
+plot_model(fit6, type = "pred", terms = c("attitude.dummy", "AI.dummy"))
+
+fit7<- lm(formula = scale(QUALITY) ~ AI.dummy + AI_Human.dummy + 
+    attitude.dummy + scale(EDU) + AI.dummy * 
+    attitude.dummy + AI_Human.dummy * attitude.dummy, 
+    data = df2)
+plot_model(fit7, type = "pred", terms = c( "attitude.dummy", "AI_Human.dummy"))
+plot_model(fit7, type = "pred", terms = c("attitude.dummy", "AI.dummy"))
+
+fit8<- lm(formula = scale(CRED) ~ AI.dummy + AI_Human.dummy + 
+    attitude.dummy + scale(EDU) + AI.dummy * 
+    attitude.dummy + AI_Human.dummy * attitude.dummy, 
+    data = df2)
+plot_model(fit8, type = "pred", terms = c( "attitude.dummy", "AI_Human.dummy"))
+plot_model(fit8, type = "pred", terms = c("attitude.dummy", "AI.dummy"))
+
+```
+```{r Issue-wise models}
+                ################### Issue-1 ##############################
+summary(lm(scale(CRED) ~ scale(AI.dummy) + scale(AI_Human.dummy)+ scale(attitude.dummy) +scale(EDU)+ scale(AI.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2 %>% filter(issue==1)), na.rm=T)
+summary(lm(scale(QUALITY) ~ scale(AI.dummy) + scale(AI_Human.dummy) + scale(attitude.dummy)+scale(EDU)+ scale(AI.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==1)), na.rm=T)
+summary(lm(scale(AGREE) ~ scale(AI.dummy) + scale(AI_Human.dummy) + scale(attitude.dummy)+scale(EDU)+ scale(AI.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==1)), na.rm=T)
+summary(lm(scale(BIASED) ~ scale(AI.dummy) + scale(AI_Human.dummy)+ scale(attitude.dummy)+scale(EDU)+ scale(AI.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==1)), na.rm=T)
+
+summary(lm(scale(CRED) ~ scale(Human.dummy) + scale(AI_Human.dummy)+ scale(attitude.dummy) +scale(EDU)+ scale(Human.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2 %>% filter(issue==1)), na.rm=T)
+summary(lm(scale(QUALITY) ~ scale(Human.dummy) + scale(AI_Human.dummy) + scale(attitude.dummy)+scale(EDU)+ scale(Human.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==1)), na.rm=T)
+summary(lm(scale(AGREE) ~ scale(Human.dummy) + scale(AI_Human.dummy) + scale(attitude.dummy)+scale(EDU)+ scale(Human.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==1)), na.rm=T)
+summary(lm(scale(BIASED) ~ scale(Human.dummy) + scale(AI_Human.dummy)+ scale(attitude.dummy)+scale(EDU)+ scale(Human.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==1)), na.rm=T)
+
+                ################### Issue-2 ##############################
+summary(lm(scale(CRED) ~ scale(AI.dummy) + scale(AI_Human.dummy)+ scale(attitude.dummy) +scale(EDU)+ scale(AI.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2 %>% filter(issue==2)), na.rm=T)
+summary(lm(scale(QUALITY) ~ scale(AI.dummy) + scale(AI_Human.dummy) + scale(attitude.dummy)+scale(EDU)+ scale(AI.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==2)), na.rm=T)
+summary(lm(scale(AGREE) ~ scale(AI.dummy) + scale(AI_Human.dummy) + scale(attitude.dummy)+scale(EDU)+ scale(AI.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==2)), na.rm=T)
+summary(lm(scale(BIASED) ~ scale(AI.dummy) + scale(AI_Human.dummy)+ scale(attitude.dummy)+scale(EDU)+ scale(AI.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==2)), na.rm=T)
+
+summary(lm(scale(CRED) ~ scale(Human.dummy) + scale(AI_Human.dummy)+ scale(attitude.dummy) +scale(EDU)+ scale(Human.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2 %>% filter(issue==2)), na.rm=T)
+summary(lm(scale(QUALITY) ~ scale(Human.dummy) + scale(AI_Human.dummy) + scale(attitude.dummy)+scale(EDU)+ scale(Human.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==2)), na.rm=T)
+summary(lm(scale(AGREE) ~ scale(Human.dummy) + scale(AI_Human.dummy) + scale(attitude.dummy)+scale(EDU)+ scale(Human.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==2)), na.rm=T)
+summary(lm(scale(BIASED) ~ scale(Human.dummy) + scale(AI_Human.dummy)+ scale(attitude.dummy)+scale(EDU)+ scale(Human.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==2)), na.rm=T)
+
+                ################### Issue-3 ##############################
+summary(lm(scale(CRED) ~ scale(AI.dummy) + scale(AI_Human.dummy)+ scale(attitude.dummy) +scale(EDU)+ scale(AI.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2 %>% filter(issue==3)), na.rm=T)
+summary(lm(scale(QUALITY) ~ scale(AI.dummy) + scale(AI_Human.dummy) + scale(attitude.dummy)+scale(EDU)+ scale(AI.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==3)), na.rm=T)
+summary(lm(scale(AGREE) ~ scale(AI.dummy) + scale(AI_Human.dummy) + scale(attitude.dummy)+scale(EDU)+ scale(AI.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==3)), na.rm=T)
+summary(lm(scale(BIASED) ~ scale(AI.dummy) + scale(AI_Human.dummy)+ scale(attitude.dummy)+scale(EDU)+ scale(AI.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==3)), na.rm=T)
+
+summary(lm(scale(CRED) ~ scale(Human.dummy) + scale(AI_Human.dummy)+ scale(attitude.dummy) +scale(EDU)+ scale(Human.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2 %>% filter(issue==3)), na.rm=T)
+summary(lm(scale(QUALITY) ~ scale(Human.dummy) + scale(AI_Human.dummy) + scale(attitude.dummy)+scale(EDU)+ scale(Human.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==3)), na.rm=T)
+summary(lm(scale(AGREE) ~ scale(Human.dummy) + scale(AI_Human.dummy) + scale(attitude.dummy)+scale(EDU)+ scale(Human.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==3)), na.rm=T)
+summary(lm(scale(BIASED) ~ scale(Human.dummy) + scale(AI_Human.dummy)+ scale(attitude.dummy)+scale(EDU)+ scale(Human.dummy)*scale(attitude.dummy)+ scale(AI_Human.dummy)*scale(attitude.dummy), data = df2  %>% filter(issue==3)), na.rm=T)
+
+```
+```{r t-tests for pro}
+datac_us<- final_data %>% filter(counter_pro==1)
+datap_us<- final_data %>% filter(counter_pro==0)
+
+with(datac_us, shapiro.test(datap_us$IMM_CRED))
+with(datac_us, shapiro.test(datap_us$IMM_CRED))
+
+t.test(datac_us$s2mean.cred, datap_us$s2mean.cred )
+t.test(datac_us$s2mean.agree, datap_us$s2mean.agree)
+t.test(datac_us$s2mean.biased, datap_us$s2mean.biased)
+t.test(datac_us$s2mean.quality, datap_us$s2mean.quality)
+
+t.test(datac_us$IMM_CRED, datap_us$IMM_CRED )
+t.test(datac_us$IMM_AGREE, datap_us$IMM_AGREE)
+t.test(datac_us$IMM_BIASED, datap_us$IMM_BIASED)
+t.test(datac_us$IMM_QUALITY, datap_us$IMM_QUALITY)
+
+t.test(datac_us$BEN_CRED, datap_us$BEN_CRED)
+t.test(datac_us$BEN_AGREE, datap_us$BEN_AGREE)
+t.test(datac_us$BEN_BIASED, datap_us$BEN_BIASED)
+t.test(datac_us$BEN_QUALITY, datap_us$BEN_QUALITY)
+
+t.test(datac_us$TE_CRED, datap_us$TE_CRED)
+t.test(datac_us$TE_AGREE, datap_us$TE_AGREE)
+t.test(datac_us$TE_BIASED, datap_us$TE_BIASED)
+t.test(datac_us$TE_QUALITY, datap_us$TE_QUALITY)
+```
+```{r dicotmizing and trocotmizing party7, ppid}
+final_data$avgppid <- (final_data$PPID_1 + final_data$PPID_2 + final_data$PPID_3 +final_data$PPID_4)/4
+ppid.mean <- mean(final_data$avgppid)
+final_data$ppid_dummy <- ifelse(final_data$avgppid> ppid.mean,1,0) #dicotmizing politcal strength predictor
+final_data$Party7_dummy <- cut(final_data$PARTY7, breaks= c(0,3,4,8), labels=c(1,2,3))
+final_data$Party7_dummy  <- as.factor(final_data$Party7_dummy )
+# tricotomizing IDEO_1: 0-4 as 1, 5 as 2 and 6-10 as 3
+final_data$IDEO_1_dummy <- cut(as.numeric(final_data$IDEO_1), breaks= c(-1,4,5,11), labels=c(1,2,3)) 
+
+final_data$condition <-as.factor(final_data$condition)
+final_data$pro <- as.factor(final_data$pro)
+final_data$EDU <- as.factor(final_data$EDU)
+final_data$ppid_dummy <- as.factor(final_data$ppid_dummy)
+
+write_xlsx(final_data, "US_final_data.xlsx")
+#pairwise comparisions for partisanship
+TukeyHSD(aov(s2mean.agree~condition+pro_attitude+ Party7_dummy+ EDU+ condition*Party7_dummy + condition*pro_attitude + pro_attitude*Party7_dummy + pro_attitude*Party7_dummy*condition, data= final_data))
+TukeyHSD(aov(s2mean.biased~condition+pro_attitude+ Party7_dummy+ EDU+ condition*Party7_dummy + condition*pro_attitude + pro_attitude*Party7_dummy + pro_attitude*Party7_dummy*condition, data= final_data))
+TukeyHSD(aov(s2mean.cred~condition+pro_attitude+ Party7_dummy+ EDU+ condition*Party7_dummy + condition*pro_attitude + pro_attitude*Party7_dummy + pro_attitude*Party7_dummy*condition, data= final_data))
+TukeyHSD(aov(s2mean.quality~condition+pro_attitude+ Party7_dummy+ EDU+ condition*Party7_dummy + condition*pro_attitude + pro_attitude*Party7_dummy + pro_attitude*Party7_dummy*condition, data= final_data))
+
+#pairwise comparisions for political party strength
+TukeyHSD(aov(s2mean.agree~condition+pro_attitude+ ppid_dummy+ EDU+ condition*ppid_dummy + condition*pro_attitude + pro_attitude*ppid_dummy + pro_attitude*ppid_dummy*condition, data= final_data))
+TukeyHSD(aov(s2mean.biased~condition+pro_attitude+ ppid_dummy+ EDU+ condition*ppid_dummy + condition*pro_attitude + pro_attitude*ppid_dummy + pro_attitude*ppid_dummy*condition, data= final_data))
+TukeyHSD(aov(s2mean.cred~condition+pro_attitude+ ppid_dummy+ EDU+ condition*ppid_dummy + condition*pro_attitude + pro_attitude*ppid_dummy + pro_attitude*ppid_dummy*condition, data= final_data))
+TukeyHSD(aov(s2mean.quality~condition+pro_attitude+ ppid_dummy+ EDU+ condition*ppid_dummy + condition*pro_attitude + pro_attitude*ppid_dummy + pro_attitude*ppid_dummy*condition, data= final_data))
+
+
+
+```
+
+```{r Anova to test for other moderators}
+
+summary(aov(scale(s2mean.agree) ~ scale(condition) + scale(pro) +scale(EDU) + scale(condition)*scale(counter_pro) + scale(IDEO_1)+ scale(IDEO_1)*scale(condition)+ scale(IDEO_1)*scale(counter_pro)+ scale(IDEO_1)*scale(counter_pro)*scale(condition), data = final_data), na.rm=T)
+summary(aov(scale(s2mean.quality) ~ scale(AI.dummy) + scale(Human.dummy) + scale(counter_pro)+scale(EDU), data = final_data), na.rm=T)
+summary(aov(scale(s2mean.biased) ~ scale(AI.dummy) + scale(Human.dummy)+ scale(counter_pro) +scale(EDU), data = final_data), na.rm=T)
+summary(aov(scale(s2mean.cred) ~ scale(AI.dummy) + scale(Human.dummy)+ scale(counter_pro)+scale(EDU), data = final_data), na.rm=T)
+```
+
+
+
